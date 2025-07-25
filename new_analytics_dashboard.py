@@ -1022,7 +1022,7 @@ class ModelManager:
         model,
         filename: str,
         feature_names: List[str],
-        metrics: Dict[str, float] = None,
+        metrics: Optional[Dict[str, float]] = None,
         model_type: str = "Unknown",
     ) -> bool:
         """Save model with comprehensive metadata"""
@@ -1522,7 +1522,7 @@ def render_executive_overview(df: pd.DataFrame, clean_features: List[str]):
 
         fig_heatmap = px.imshow(
             corr_matrix,
-            text_auto=".2f",
+            text_auto=True,
             aspect="auto",
             title="Top 10 Features - Correlation with Performance",
             color_continuous_scale="RdBu_r",
@@ -1708,14 +1708,22 @@ def render_advanced_analytics(df: pd.DataFrame, clean_features: List[str]):
         ]
 
         if len(numeric_features) > 1:
-            corr_matrix = df[numeric_features + ["total_marks"]].corr(
-                method=corr_method
-            )
+            # Ensure corr_method is one of the accepted values and cast to literal type
+            if corr_method == "pearson":
+                method = "pearson"
+            elif corr_method == "spearman":
+                method = "spearman"
+            elif corr_method == "kendall":
+                method = "kendall"
+            else:
+                method = "pearson"  # fallback to default
+
+            corr_matrix = df[numeric_features + ["total_marks"]].corr(method=method)
 
             # Interactive heatmap
             fig_corr = px.imshow(
                 corr_matrix,
-                text_auto=".3f",
+                text_auto=True,
                 aspect="auto",
                 title=f"Correlation Matrix ({corr_method.title()})",
                 color_continuous_scale="RdBu_r",
@@ -1742,8 +1750,9 @@ def render_advanced_analytics(df: pd.DataFrame, clean_features: List[str]):
                 st.markdown("**🏆 Top Positive Correlations:**")
                 positive_corrs = performance_corrs[performance_corrs > 0].head(5)
                 for feature, corr in positive_corrs.items():
+                    feature_name = str(feature)  # Ensure it's a string
                     st.markdown(
-                        f"• {feature.replace('_', ' ').title()}: **{corr:.3f}**"
+                        f"• {feature_name.replace('_', ' ').title()}: **{corr:.3f}**"
                     )
 
             with col2:
@@ -1751,8 +1760,9 @@ def render_advanced_analytics(df: pd.DataFrame, clean_features: List[str]):
                 negative_corrs = performance_corrs[performance_corrs < 0].head(5)
                 if len(negative_corrs) > 0:
                     for feature, corr in negative_corrs.items():
+                        feature_name = str(feature)  # Ensure it's a string
                         st.markdown(
-                            f"• {feature.replace('_', ' ').title()}: **{corr:.3f}**"
+                            f"• {feature_name.replace('_', ' ').title()}: **{corr:.3f}**"
                         )
                 else:
                     st.markdown("✅ No significant negative correlations found!")
@@ -1939,11 +1949,18 @@ def main():
     # Initialize application
     df, clean_features, metadata = initialize_app()
 
+    # Ensure we have valid data before proceeding
+    if df is None or len(df) == 0:
+        st.error("❌ No data available. Please check your data files.")
+        st.stop()
+
     # Render header
     render_header()
 
     # Render sidebar and get selections
-    page, selected_risks, filter_settings = render_sidebar(df, metadata)
+    page, _, filter_settings = render_sidebar(
+        df, metadata
+    )  # Use _ for unused selected_risks
 
     # Apply filters
     filtered_df = apply_filters(df, filter_settings)
@@ -2537,12 +2554,18 @@ def render_predictive_models(df: pd.DataFrame, clean_features: List[str]):
                 st.markdown("#### 💡 Debug Summary & Recommendations")
 
                 try:
-                    best_acc = max(
-                        [
-                            acc_1 if "acc_1" in locals() else 0,
-                            acc_2 if "acc_2" in locals() else 0,
-                        ]
+                    # Safely get accuracy values and ensure they're float
+                    acc_1_val = (
+                        float(acc_1)
+                        if "acc_1" in locals() and acc_1 is not None
+                        else 0.0
                     )
+                    acc_2_val = (
+                        float(acc_2)
+                        if "acc_2" in locals() and acc_2 is not None
+                        else 0.0
+                    )
+                    best_acc = max(acc_1_val, acc_2_val)
 
                     if best_acc > 0.85:
                         st.success(

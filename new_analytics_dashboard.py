@@ -621,7 +621,9 @@ class DataProcessor:
         while len(current_features) < target_count:
             missing_count = target_count - len(current_features)
             st.info(f"🔧 Creating {missing_count} additional features...")
-            # Create interaction features           numerical_base = [
+
+            # Create interaction features
+            numerical_base = [
                 "total_events",
                 "num_days_active",
                 "num_resource_views",
